@@ -1,0 +1,303 @@
+
+
+'''
+1)
+    - удалить метрвые нетерминалы
+    - удалить недосягаемые нетерминалы
+    - найти множество исчезающих нетерминалов
+    - проверить есть ли левая рекурсия
+        если есть 
+            - удалить исчезающие нетерминалы
+            - удалить правила связанные с ними
+            - удалить левую рекурсию
+    -   сделать левую факторизацию
+2)
+    - парсинг лево-рекурсивным спуском
+'''
+
+#####################  1) - удалить метрвые нетерминалы #########################
+def update1(alives, P, N):
+    for key, value in P.items():
+        for str_ in value:
+            cnt = 0
+            for ch in str_:
+                if (ch in alives) or (ch not in N):
+                    cnt+=1
+            if cnt == len(str_) and key not in alives:
+                alives.add(key)
+                return True
+                
+    return False            
+    
+def dead_nonterm(E, N, S, P):
+    
+    alives = set()
+    for key, value in P.items():
+        for str_ in value:
+            cnt = 0
+            for ch in str_:
+                if ch in N:
+                    cnt+=1
+            if cnt == 0:
+                alives.add(key)
+           
+    flag = True 
+    while flag:
+        flag = update1(alives, P, N)
+        
+  
+    dead = set();
+    print("dead -> ", end=" ")   
+    for ch in N:
+        if ch not in alives:
+            dead.add(ch);
+            print(ch, end = ' ')
+    print()
+    
+    ###############deleting####################
+    should_be_deleted1 = []
+    for key, value in P.items():
+        if key in dead:
+            should_be_deleted1.append(key);
+        else:        
+            should_be_deleted2 = []
+            for str_ in value:
+                cnt = 0
+                for ch in str_:
+                    if ch in dead:
+                        cnt+=1 
+                if cnt > 0:
+                    should_be_deleted2.append(str_)
+            for i in should_be_deleted2:
+                P[key].remove(i)
+                    
+    for i in should_be_deleted1:
+        P.pop(i);
+################################################################################
+    
+#####################  1) - удалить недосягаемые нетерминалы ###################
+ 
+def update2(reachables, P, N):
+    for key, value in P.items():
+        if key in reachables:
+            for str_ in value:
+                for ch in str_:
+                    if ch not in reachables and ch in N:
+                        reachables.add(ch)
+                        return True
+                
+    return False   
+    
+def unreachables_term(E, N, S, P):
+    
+    reachables = set(S)
+           
+    flag = True 
+    while flag:
+        flag = update2(reachables, P, N)
+        
+   
+        
+    unreachables = set();
+    print("unreachables -> ", end=" ") 
+    for ch in N:
+        if ch not in reachables:
+            unreachables.add(ch)
+            print(ch, end = ' ')
+            
+    print()
+    ###############deleting####################
+    should_be_deleted = []
+    for key, value in P.items():
+        if key in unreachables:
+            should_be_deleted.append(key)
+    for i in should_be_deleted:
+        P.pop(i)
+################################################################################
+
+#####################  1) - найти множество исчезающих нетерминалов ############
+
+def update3(vanishing, P):
+    for key, value in P.items():
+        for str_ in value:
+            cnt = 0
+            for ch in str_:
+                if ch not in vanishing:
+                    cnt+=1
+            if cnt == 0 and key not in vanishing:
+                vanishing.add(key)
+                return True
+                
+    return False   
+    
+def disappeared(E, N, S, P):
+    
+    vanishing = set()
+    for key, value in P.items():
+        for str_ in value:
+            if str_ == "ε":
+                vanishing.add(key)
+           
+    flag = True 
+    while flag:
+        flag = update3(vanishing, P)
+        
+    return vanishing
+    
+################################################################################
+
+#####################  1) - проверить есть ли левая рекурсия  ##################
+
+def update4(recursions, vanishing, p):
+    for key, value in P.items():
+        for str_ in value:
+            cnt = 0
+            flag = False
+            for ch in str_:
+                if ch == key:
+                    flag = True;
+                    break
+                if ch not in vanishing:
+                    cnt+=1
+            if flag == True and cnt == 0 and key not in recursions:
+                recursions.add(key)
+                return True
+                
+    return False   
+    
+def find_recursions(E,N,S,P, vanishing):
+    recursions = set()
+    for key, value in P.items():
+        for str_ in value:
+            if str_[0] == key:
+                recursions.add(key)
+    flag = True
+    while flag:
+        flag = update4(recursions, vanishing, P)
+    
+    return recursions
+    
+################################################################################
+
+#####################  1) если есть левая рекурсия #############################
+#####################     - удалить исчезающие нетерминалы #####################
+#####################     - удалить правила связанные с ними ###################
+#####################     - удалить левую рекурсию  ############################
+
+def left_rec(E, N, S, P, vanishing,recursions):
+    
+    for i in vanishing:
+        if i in N:
+            N.remove(i)
+        
+        
+    
+    for key, value in P.items():
+        for str_ in value:
+            for chr_ in str_:
+                if chr_ in vanishing:
+                    str_.remove(chr_)
+    G= {}   
+    G['S'] = []
+    G['S'].append("S|S")    
+    G['S'].append("A")   
+    for key in recursions:
+        if key in recursions:
+            value = P[key]
+            should_be_deleted = []
+            should_be_added = []
+            for str_ in value:
+                if str_[0] != key:
+                    should_be_added.append(str_ + key + '^')
+                else:
+                    should_be_deleted.append(str_)
+                    
+            for i in should_be_deleted:
+                value.remove(i)
+                
+            for i in should_be_added:
+                value.append(i)
+                
+            N.add(key + '^')
+            P[key + '^'] = []
+            for i in should_be_deleted:
+                j = i[1:]
+                P[key + '^'].append(j)
+                P[key + '^'].append(j + key+'^')
+
+
+################################################################################
+
+#####################  1) - левая факторизация №№№№№№№№№№№№№№№№№№№№№############
+
+
+def left_factor(E, N, S, P):
+    
+    
+################################################################################
+ 
+
+#####################  2) - парсинг лево-рекурсивным спуском  ##################
+
+################################################################################
+
+'''
+start: S
+rules:
+    S -> S '|' S | A
+    A -> A ',' A | P
+    P -> P '*' | 'chr' | 'nil'
+'''
+
+
+E = {'|', ',', 'chr', 'nil'}
+N = {'S', 'A', 'P'}
+S = 'S'
+P = {}
+P['S'] = []
+P['S'].append("S|S")
+P['S'].append("A")
+P['A'] = []
+P['A'].append("A,A")
+P['A'].append("P")
+P['P'] = []
+P['P'].append("P*")
+P['P'].append("chr")
+P['P'].append("nil")
+
+    
+dead_nonterm(E,N,S,P)
+print ("\nNew rules(after deleting only dead nonterminals):")
+for nonT, lst in P.items():
+    print(nonT,end ="->")
+    for j in lst:
+        print(j, end ="|")
+    print()
+    
+unreachables_term(E,N,S,P)
+
+print ("\nNew rules(after deleting unnecessary nonterminals):")
+for nonT, lst in P.items():
+    print(nonT,end ="->")
+    for j in lst:
+        print(j, end ="|")
+    print()
+    
+
+vanishing = disappeared(E,N,S,P)
+print ("vanishing")
+for i in vanishing:
+    print(i, end = " ")
+print()
+recursions = find_recursions(E,N,S,P, vanishing)
+
+if len(recursions):
+    left_rec(E,N,S,P, vanishing,recursions)
+    
+print ("\nNew rules:")
+for nonT, lst in P.items():
+    print(nonT,end ="->")
+    for j in lst:
+        print(j, end ="  ")
+    print()    
+    
